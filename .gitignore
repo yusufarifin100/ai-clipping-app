@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# App temporary files & outputs
+downloads/
+output/
+test_sample.mp4*
+*.mp4
+*.part
+*.wav
+*.jpg
+*.png
+
+# Keep folders structure
+!assets/.gitkeep
+!templates/.gitkeep
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel

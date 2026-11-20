@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Gaming Clipper 9:16 - GTA VI Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0c14;
+            --card-bg: #111422;
+            --border-color: #1e243a;
+            --neon-pink: #ff2a85;
+            --neon-cyan: #00f0ff;
+            --neon-purple: #9d4edd;
+            --text-main: #f3f4f6;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 20%, rgba(255, 42, 133, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(0, 240, 255, 0.08) 0%, transparent 40%);
+        }
+
+        header {
+            padding: 24px 40px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(17, 20, 34, 0.8);
+            backdrop-filter: blur(12px);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-badge {
+            background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple));
+            color: white;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 4px 8px;
+            border-radius: 6px;
+            letter-spacing: 1px;
+        }
+
+        .brand h1 {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #fff, var(--neon-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 24px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+        }
+
+        @media (max-width: 900px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+        }
+
+        .card-header {
+            margin-bottom: 24px;
+        }
+
+        .card-header h2 {
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-header p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+        }
+
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 12px 16px;
+            background: #0d101d;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.2);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .layout-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+
+        .layout-card {
+            border: 1px solid var(--border-color);
+            background: #0d101d;
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .layout-card:hover {
+            border-color: #3b4263;
+        }
+
+        .layout-card.selected {
+            border-color: var(--neon-pink);
+            background: rgba(255, 42, 133, 0.08);
+        }
+
+        .layout-card .icon {
+            font-size: 24px;
+            margin-bottom: 6px;
+        }
+
+        .layout-card .title {
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .layout-card .desc {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple));
+            color: white;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 6px 20px rgba(255, 42, 133, 0.3);
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(255, 42, 133, 0.45);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .console-box {
+            background: #080a12;
+            border: 1px solid #1a2035;
+            border-radius: 12px;
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #10b981;
+            height: 220px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        .results-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .result-card {
+            background: #0d101d;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .result-card video {
+            width: 100%;
+            aspect-ratio: 9/16;
+            background: black;
+            object-fit: cover;
+        }
+
+        .result-info {
+            padding: 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .result-info h4 {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .btn-download {
+            background: var(--neon-cyan);
+            color: #000;
+            text-decoration: none;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+            display: block;
+            transition: opacity 0.2s;
+        }
+
+        .btn-download:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">
+            <span class="brand-badge">GTA VI READY</span>
+            <h1>AI Gaming Auto-Clipper 9:16</h1>
+        </div>
+        <div style="font-size: 12px; color: var(--text-muted);">
+            Decibel Peak & Facecam Detection Active
+        </div>
+    </header>
+
+    <main>
+        <!-- Form Section -->
+        <div class="card">
+            <div class="card-header">
+                <h2>🎮 Input Video & Konfigurasi</h2>
+                <p>Masukkan link YouTube gaming atau file MP4 lokal untuk dipotong otomatis.</p>
+            </div>
+
+            <form id="clipForm">
+                <div class="form-group">
+                    <label>YouTube Video URL / Path MP4 Lokal</label>
+                    <input type="text" id="sourceUrl" value="https://www.youtube.com/watch?v=qSyo5d-dVzA" placeholder="https://youtube.com/watch?v=..." required>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Start Window (Menit ke-)</label>
+                        <input type="number" id="startMin" value="5" min="0" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Window Duration (Menit)</label>
+                        <input type="number" id="durationMin" value="3" min="1" max="60" step="1">
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Durasi Clip Shorts (Detik)</label>
+                        <select id="clipLen">
+                            <option value="20">20 Detik (Fast Paced)</option>
+                            <option value="30" selected>30 Detik (Standard Shorts)</option>
+                            <option value="45">45 Detik (Story / Build-up)</option>
+                            <option value="60">60 Detik (Maksimal)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Jumlah Klip Dihasilkan</label>
+                        <input type="number" id="topK" value="2" min="1" max="5">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Hook Title Banner Text</label>
+                    <input type="text" id="hookTitle" value="GTA VI MOMENT 💀" placeholder="Judul hook di atas video...">
+                </div>
+
+                <div class="form-group">
+                    <label>Layout Vertikal (9:16)</label>
+                    <div class="layout-options">
+                        <div class="layout-card selected" data-layout="auto" onclick="selectLayout('auto')">
+                            <div class="icon">⚡</div>
+                            <div class="title">Auto Detect</div>
+                            <div class="desc">Facecam jika ada, atau Blur</div>
+                        </div>
+                        <div class="layout-card" data-layout="facecam" onclick="selectLayout('facecam')">
+                            <div class="icon">👤</div>
+                            <div class="title">Split Screen</div>
+                            <div class="desc">Top: Streamer, Bottom: Game</div>
+                        </div>
+                        <div class="layout-card" data-layout="blur" onclick="selectLayout('blur')">
+                            <div class="icon">✨</div>
+                            <div class="title">Blurred BG</div>
+                            <div class="desc">Cinematic 16:9 in Center</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" id="btnSubmit" class="btn-submit">
+                    <span>⚡ GENERATE CLIPS SEKARANG</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Output & Status Section -->
+        <div class="card">
+            <div class="card-header">
+                <h2>📺 Status & Hasil Video Shorts</h2>
+                <p>Live progress pemotongan dan galeri video siap download.</p>
+            </div>
+
+            <div class="console-box" id="consoleLog">Menunggu instruksi pemotongan...</div>
+
+            <div class="results-container" id="resultsGallery">
+                <!-- Rendered videos appear here -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentLayout = 'auto';
+
+        function selectLayout(layout) {
+            currentLayout = layout;
+            document.querySelectorAll('.layout-card').forEach(el => {
+                el.classList.toggle('selected', el.getAttribute('data-layout') === layout);
+            });
+        }
+
+        const logEl = document.getElementById('consoleLog');
+        function appendLog(msg) {
+            logEl.textContent += '\n' + msg;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        document.getElementById('clipForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btnSubmit');
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳ Memproses Video...</span>';
+
+            const payload = {
+                source: document.getElementById('sourceUrl').value,
+                start_min: parseFloat(document.getElementById('startMin').value),
+                duration_min: parseFloat(document.getElementById('durationMin').value),
+                clip_len: parseInt(document.getElementById('clipLen').value),
+                top_k: parseInt(document.getElementById('topK').value),
+                hook_title: document.getElementById('hookTitle').value,
+                layout: currentLayout
+            };
+
+            logEl.textContent = '[1/4] Mengirim permintaan ke AI Clipper Engine...';
+
+            try {
+                const res = await fetch('/api/clip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                
+                if (data.status === 'ok') {
+                    pollTask(data.task_id);
+                } else {
+                    appendLog('❌ Error: ' + data.message);
+                    btn.disabled = false;
+                    btn.innerHTML = '<span>⚡ GENERATE CLIPS SEKARANG</span>';
+                }
+            } catch (err) {
+                appendLog('❌ Koneksi error: ' + err.message);
+                btn.disabled = false;
+                btn.innerHTML = '<span>⚡ GENERATE CLIPS SEKARANG</span>';
+            }
+        });
+
+        async function pollTask(taskId) {
+            const btn = document.getElementById('btnSubmit');
+            const interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/status/${taskId}`);
+                    const data = await res.json();
+                    
+                    if (data.logs && data.logs.length > 0) {
+                        logEl.textContent = data.logs.join('\n');
+                        logEl.scrollTop = logEl.scrollHeight;
+                    }
+
+                    if (data.status === 'done') {
+                        clearInterval(interval);
+                        btn.disabled = false;
+                        btn.innerHTML = '<span>⚡ GENERATE CLIPS SEKARANG</span>';
+                        appendLog('\n🎉 Semua klip berhasil diproses!');
+                        renderGallery(data.clips);
+                    } else if (data.status === 'error') {
+                        clearInterval(interval);
+                        btn.disabled = false;
+                        btn.innerHTML = '<span>⚡ GENERATE CLIPS SEKARANG</span>';
+                        appendLog('\n❌ Proses gagal: ' + data.error);
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            }, 1500);
+        }
+
+        function renderGallery(clips) {
+            const gallery = document.getElementById('resultsGallery');
+            gallery.innerHTML = '';
+            if (!clips || clips.length === 0) return;
+
+            clips.forEach((clip, idx) => {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                card.innerHTML = `
+                    <video src="${clip.url}" controls></video>
+                    <div class="result-info">
+                        <h4>Clip #${idx + 1} (${clip.duration}s)</h4>
+                        <a href="${clip.url}" download class="btn-download">⬇ Download MP4</a>
+                    </div>
+                `;
+                gallery.appendChild(card);
+            });
+        }
+
+        // Load existing clips on start
+        fetch('/api/existing-clips')
+            .then(res => res.json())
+            .then(data => {
+                if (data.clips && data.clips.length > 0) {
+                    renderGallery(data.clips);
+                }
+            }).catch(() => {});
+    </script>
+</body>
+</html>
