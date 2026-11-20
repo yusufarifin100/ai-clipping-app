@@ -24,33 +24,55 @@ class AudioSpikeAnalyzer:
             raise RuntimeError(f"FFmpeg audio extraction failed: {result.stderr.decode('utf-8', errors='ignore')}")
         return wav_path
 
-    def analyze_highlights(self, video_path: str, clip_duration: int = 30, pre_roll: int = 10, top_k: int = 5) -> List[Dict]:
+    def analyze_highlights(
+        self,
+        video_path: str,
+        clip_duration: int = 30,
+        pre_roll: int = 8,
+        top_k: int = 3,
+        mode: str = "gaming"
+    ) -> List[Dict]:
         """
-        Analyze audio energy and find top moments (screams, laugh bursts, explosions).
+        Analyze audio energy and find top highlight moments.
+        Adapts weights and pre-roll based on mode (gaming, podcast, talking_head).
         Returns list of clips with start_time, end_time, spike_time, and intensity score.
         """
         temp_wav = os.path.splitext(video_path)[0] + "_temp_audio.wav"
         try:
             self.extract_audio_wav(video_path, temp_wav)
             with wave.open(temp_wav, "rb") as wf:
-                n_channels = wf.getnchannels()
-                sampwidth = wf.getsampwidth()
                 framerate = wf.getframerate()
                 n_frames = wf.getnframes()
                 audio_bytes = wf.readframes(n_frames)
 
-            # Convert to numpy int16 array
+            # Convert to numpy float32 array
             audio_data = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
             total_duration = len(audio_data) / framerate
 
             if total_duration < clip_duration:
-                # Video is shorter than target clip duration
                 return [{
                     "start": 0,
                     "end": total_duration,
                     "spike_time": total_duration / 2,
                     "score": 1.0
                 }]
+
+            # Configure weights and parameters based on content mode
+            if mode == "podcast":
+                w_loudness = 0.70
+                w_delta = 0.30
+                pre_roll = max(pre_roll, 12)  # More context for dialog flow
+                kernel_size = 30             # Longer baseline smoothing for conversations
+            elif mode == "talking_head":
+                w_loudness = 0.55
+                w_delta = 0.45
+                pre_roll = max(pre_roll, 6)
+                kernel_size = 20
+            else:  # gaming
+                w_loudness = 0.35
+                w_delta = 0.65               # High sensitivity to sudden screams, claps, explosions
+                pre_roll = max(pre_roll, 8)
+                kernel_size = 18
 
             # Calculate RMS energy per 0.5 second window
             hop_size = int(framerate * 0.5)
@@ -71,18 +93,17 @@ class AudioSpikeAnalyzer:
             max_rms = np.max(rms_values) if np.max(rms_values) > 0 else 1.0
             db_values = 20 * np.log10(rms_values / max_rms + 1e-9)
 
-            # Compute rolling baseline (moving average across 10 seconds / 20 steps)
-            kernel_size = 20
+            # Rolling baseline
             kernel = np.ones(kernel_size) / kernel_size
             baseline = np.convolve(db_values, kernel, mode="same")
 
             # Spike delta = how much higher than surrounding context
             delta = db_values - baseline
 
-            # Combined score: absolute loudness (weight 0.4) + sudden spike jump (weight 0.6)
+            # Combined score
             norm_db = (db_values - np.min(db_values)) / (np.max(db_values) - np.min(db_values) + 1e-9)
             norm_delta = (delta - np.min(delta)) / (np.max(delta) - np.min(delta) + 1e-9)
-            scores = 0.4 * norm_db + 0.6 * norm_delta
+            scores = (w_loudness * norm_db) + (w_delta * norm_delta)
 
             # Find peak candidates
             ranked_indices = np.argsort(scores)[::-1]
@@ -94,11 +115,10 @@ class AudioSpikeAnalyzer:
                 spike_sec = float(timestamps[idx])
                 start_sec = max(0.0, spike_sec - pre_roll)
                 end_sec = min(total_duration, start_sec + clip_duration)
-                # Adjust if near end
                 if end_sec - start_sec < clip_duration:
                     start_sec = max(0.0, end_sec - clip_duration)
 
-                # Check overlap with already chosen highlights (at least 20s gap)
+                # Check overlap (at least 20s gap)
                 overlap = False
                 for u_start, u_end in used_ranges:
                     if not (end_sec <= u_start or start_sec >= u_end):
@@ -117,7 +137,6 @@ class AudioSpikeAnalyzer:
                 if len(highlights) >= top_k:
                     break
 
-            # Sort chronologically or by score
             return highlights
 
         finally:
