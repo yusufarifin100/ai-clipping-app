@@ -255,8 +255,8 @@ def detect_layout_for_mode(mode: str, video_path: str, layout_pref: str, log_fn)
         log_fn("       Layout dipilih: Cinematic Blurred Background")
     elif mode == "gaming":
         detector = GamingLayoutDetector()
-        facecam = detector.detect_streamer_facecam(video_path)
-        if facecam and (layout_pref in ["auto", "split"]):
+        facecam = detector.detect_streamer_facecam(video_path, layout_preset=layout_pref)
+        if facecam and (layout_pref in ["auto", "split", "left", "right"]):
             selected_layout = "facecam_split"
             layout_data = facecam
             log_fn(f"       Facecam streamer terdeteksi: x={facecam['x']}, y={facecam['y']}, size={facecam['w']}x{facecam['h']}")

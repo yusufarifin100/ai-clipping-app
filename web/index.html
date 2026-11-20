@@ -229,7 +229,7 @@
 
         .layout-options {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
             gap: 10px;
         }
 
@@ -586,10 +586,15 @@
                             <div class="title">Auto AI</div>
                             <div class="desc" id="layoutAutoDesc">Deteksi otomatis tercocok</div>
                         </div>
-                        <div class="layout-card" data-layout="split" onclick="selectLayout('split')">
-                            <div class="icon" id="layoutSplitIcon">👥</div>
-                            <div class="title" id="layoutSplitTitle">Split Screen</div>
-                            <div class="desc" id="layoutSplitDesc">Atas: Streamer, Bawah: Game</div>
+                        <div class="layout-card" data-layout="left" onclick="selectLayout('left')">
+                            <div class="icon">👈</div>
+                            <div class="title">Facecam Kiri</div>
+                            <div class="desc">Speed / Streamer Kiri</div>
+                        </div>
+                        <div class="layout-card" data-layout="right" onclick="selectLayout('right')">
+                            <div class="icon">👉</div>
+                            <div class="title">Facecam Kanan</div>
+                            <div class="desc">Webcam Pojok Kanan</div>
                         </div>
                         <div class="layout-card" data-layout="blur" onclick="selectLayout('blur')">
                             <div class="icon">✨</div>
