@@ -13,6 +13,7 @@ class YouTubeDownloader:
             "yt-dlp",
             "--dump-json",
             "--no-playlist",
+            "--extractor-args", "youtube:player_client=android,web",
             url
         ]
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
@@ -41,6 +42,7 @@ class YouTubeDownloader:
         cmd = [
             "yt-dlp",
             "--download-sections", section,
+            "--extractor-args", "youtube:player_client=android,web",
             "-f", "bestvideo[height<=720]+bestaudio/best[height<=720]/best",
             "--merge-output-format", "mp4",
             "-o", output_path,
@@ -51,9 +53,18 @@ class YouTubeDownloader:
         print(f"[Downloader] Downloading section {start_time_str} to {end_time_str}...")
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
         if result.returncode != 0:
-            # Fallback to standard 360p or available stream
-            cmd[4] = "134+140/best"
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
+            # Fallback format for stubborn streams
+            print("[Downloader] Primary stream failed, trying fallback stream...")
+            fallback_cmd = [
+                "yt-dlp",
+                "--download-sections", section,
+                "--extractor-args", "youtube:player_client=android,web",
+                "-f", "best",
+                "-o", output_path,
+                "--force-overwrites",
+                url
+            ]
+            result = subprocess.run(fallback_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
             if result.returncode != 0:
                 raise RuntimeError(f"Download failed: {result.stderr}")
 
@@ -67,6 +78,7 @@ class YouTubeDownloader:
 
         cmd = [
             "yt-dlp",
+            "--extractor-args", "youtube:player_client=android,web",
             "-f", f"bestvideo[height<={max_height}]+bestaudio/best[height<={max_height}]/best",
             "--merge-output-format", "mp4",
             "-o", output_path,
@@ -75,6 +87,16 @@ class YouTubeDownloader:
         ]
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
         if result.returncode != 0:
-            raise RuntimeError(f"Download failed: {result.stderr}")
+            fallback_cmd = [
+                "yt-dlp",
+                "--extractor-args", "youtube:player_client=android,web",
+                "-f", "best",
+                "-o", output_path,
+                "--force-overwrites",
+                url
+            ]
+            result = subprocess.run(fallback_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
+            if result.returncode != 0:
+                raise RuntimeError(f"Download failed: {result.stderr}")
 
         return output_path
