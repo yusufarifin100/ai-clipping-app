@@ -15,7 +15,7 @@ def process_video(
     source: str,
     mode: str = "gaming",
     time_window_start: int = 0,
-    time_window_duration: int = 300,
+    time_window_duration: int = 1440, # default 24h scan
     clip_duration: int = 30,
     top_k: int = 2,
     layout_preference: str = "auto",
@@ -46,159 +46,191 @@ def process_video(
     analyzer = AudioSpikeAnalyzer()
     clipper = VideoClipper(output_dir="output")
     copywriter = AICopywriter()
+    sub_generator = SubtitleGenerator(model_name=whisper_model) if generate_subtitles else None
 
-    video_file = source
+    is_youtube = source.startswith("http://") or source.startswith("https://")
+    total_sec = 0
+    start_sec = time_window_start
+    dur_sec = time_window_duration * 60 if time_window_duration > 0 else 0
 
-    # 1. Download if URL
-    if source.startswith("http://") or source.startswith("https://"):
+    if is_youtube:
         print(f"\n[1/4] 🌐 Checking YouTube URL: {source}")
         info = downloader.get_info(source)
         title = info.get("title", "Video")
-        total_sec = info.get("duration", 0)
+        total_sec = int(info.get("duration", 0))
         print(f"       Title   : {title}")
         print(f"       Duration: {total_sec // 3600}h {(total_sec % 3600) // 60}m {total_sec % 60}s")
 
-        if total_sec > 900 and time_window_duration > 0:
-            print(f"       [Notice] Video is long ({total_sec // 3600}h). Downloading segment ({time_window_start}s to {time_window_start + time_window_duration}s)...")
+        if dur_sec <= 0 or (start_sec + dur_sec) > total_sec:
+            dur_sec = max(60, total_sec - start_sec)
+
+    rendered_files = []
+
+    # STRATEGY A: Long livestream (> 20 min) Audio-First Scan
+    if is_youtube and dur_sec > 1200:
+        print(f"\n[1/4] ⚡ Activating Smart Audio-First Scan for Long Livestream ({dur_sec // 3600}h {(dur_sec % 3600) // 60}m)...")
+        audio_file = downloader.download_audio_stream(
+            url=source,
+            start_sec=start_sec,
+            end_sec=start_sec + dur_sec,
+            output_filename=f"{mode}_stream_audio.m4a"
+        )
+
+        print(f"\n[2/4] 🔊 Scanning audio energy peaks across the full window...")
+        highlights = analyzer.analyze_highlights(
+            audio_file,
+            clip_duration=clip_duration,
+            top_k=top_k,
+            mode=mode
+        )
+        print(f"       Found {len(highlights)} peak moment(s) across entire stream:")
+        for idx, h in enumerate(highlights, 1):
+            abs_time = start_sec + h["start"]
+            print(f"       #{idx}: {int(abs_time // 3600):02d}h{int((abs_time % 3600) // 60):02d}m{int(abs_time % 60):02d}s (Score: {h['score']})")
+
+        print(f"\n[3/4 & 4/4] 🎬 Downloading HD video per segment & rendering 9:16 Shorts...")
+        for idx, h in enumerate(highlights, 1):
+            abs_start = max(0, int(start_sec + h["start"]))
+            abs_end = abs_start + clip_duration
+            time_label = f"{int(abs_start // 3600):02d}h{int((abs_start % 3600) // 60):02d}m{int(abs_start % 60):02d}s"
+
+            print(f"\n--- Processing Clip #{idx} (at {time_label}) ---")
+            clip_video = downloader.download_segment(
+                url=source,
+                start_sec=abs_start,
+                end_sec=abs_end,
+                output_filename=f"cli_seg_{idx}.mp4"
+            )
+
+            # Layout Detection
+            selected_layout, layout_data = detect_layout_cli(mode, clip_video, layout_preference)
+
+            # Subtitles
+            sub_ass, transcript_text = None, ""
+            if sub_generator:
+                try:
+                    ass_path = os.path.join("output", f"sub_{mode}_{idx}.ass")
+                    sub_ass, transcript_text = sub_generator.generate_subtitles(clip_video, ass_path)
+                except Exception as e:
+                    print(f"       ⚠️ Subtitle warning: {e}")
+
+            out_name = f"{mode}_clip_{idx}.mp4"
+            out_path = clipper.render_clip(
+                input_video=clip_video,
+                start_sec=0,
+                duration=clip_duration,
+                output_name=out_name,
+                layout_mode=selected_layout,
+                layout_data=layout_data,
+                hook_title=f"{hook_title} ({time_label})",
+                mode=mode,
+                subtitle_ass_path=sub_ass
+            )
+            rendered_files.append(out_path)
+            print(f"       ✅ Clip #{idx} saved: {out_path}")
+
+            social = copywriter.generate_social_pack(transcript_text, mode=mode, hook_title=hook_title)
+            print(f"       📝 Caption:\n{social['caption']}\n")
+
+    # STRATEGY B: Moderate or Short Slice / Local File
+    else:
+        video_file = source
+        if is_youtube:
+            print("       Downloading test segment...")
             video_file = downloader.download_segment(
                 url=source,
-                start_sec=time_window_start,
-                end_sec=time_window_start + time_window_duration,
+                start_sec=start_sec,
+                end_sec=start_sec + dur_sec,
                 output_filename=f"{mode}_sample.mp4"
             )
-        else:
-            print("       Downloading full video...")
-            video_file = downloader.download_full(source, output_filename=f"{mode}_full.mp4")
 
-    if not os.path.exists(video_file):
-        print(f"❌ Error: Video file not found: {video_file}")
-        return
-
-    # 2. Analyze Audio Highlights
-    print(f"\n[2/4] 🔊 Analyzing Audio Highlights (Mode: {mode.upper()})...")
-    highlights = analyzer.analyze_highlights(
-        video_file,
-        clip_duration=clip_duration,
-        top_k=top_k,
-        mode=mode
-    )
-    print(f"       Found {len(highlights)} peak moment(s):")
-    for i, h in enumerate(highlights, 1):
-        print(f"       #{i}: {h['start']}s - {h['end']}s (Spike at {h['spike_time']}s | Score: {h['score']})")
-
-    # 3. Detect Layout based on Mode
-    print(f"\n[3/4] 📹 Analyzing Screen Layout (Mode: {mode.upper()})...")
-    selected_layout = "blurred_bg"
-    layout_data = None
-
-    if layout_preference == "blur":
-        selected_layout = "blurred_bg"
-        print("       Layout selected by user preference: Cinematic Blurred Background")
-    elif mode == "gaming":
-        detector = GamingLayoutDetector()
-        facecam_box = detector.detect_streamer_facecam(video_file)
-        if facecam_box and (layout_preference == "auto" or layout_preference == "split"):
-            selected_layout = "facecam_split"
-            layout_data = facecam_box
-            print(f"       Streamer facecam detected at: x={facecam_box['x']}, y={facecam_box['y']}, size={facecam_box['w']}x{facecam_box['h']}")
-            print("       Layout selected: Split Screen (Top: Streamer, Bottom: Gameplay)")
-        else:
-            selected_layout = "blurred_bg"
-            print("       No streamer facecam detected. Using: Blurred Background Layout")
-
-    elif mode == "podcast":
-        detector = PodcastLayoutDetector()
-        speakers = detector.detect_podcast_speakers(video_file)
-        if speakers and (layout_preference == "auto" or layout_preference == "split"):
-            selected_layout = "podcast_split"
-            layout_data = speakers
-            print(f"       Podcast speakers detected! (Host & Guest)")
-            print("       Layout selected: Dual-Speaker Split Screen (Top: Host, Bottom: Guest)")
-        else:
-            selected_layout = "blurred_bg"
-            print("       Speakers not clearly separated. Using: Blurred Background Layout")
-
-    elif mode == "talking_head":
-        detector = TalkingHeadLayoutDetector()
-        head_box = detector.detect_talking_head(video_file)
-        if head_box and (layout_preference == "auto" or layout_preference == "portrait"):
-            selected_layout = "talking_head"
-            layout_data = head_box
-            status = "Face tracked" if head_box.get("face_detected") else "Center framing"
-            print(f"       Speaker framing ({status}): x={head_box['x']}, w={head_box['w']}, h={head_box['h']}")
-            print("       Layout selected: 9:16 Portrait Auto-Reframe")
-        else:
-            selected_layout = "blurred_bg"
-            print("       Using: Blurred Background Layout")
-
-    # 4. Render Final Vertical Shorts (9:16) & Subtitles
-    print(f"\n[4/4] 🎬 Processing Subtitles & Rendering 9:16 Shorts...")
-    rendered_files = []
-    sub_generator = SubtitleGenerator(model_name=whisper_model) if generate_subtitles else None
-
-    for i, h in enumerate(highlights, 1):
-        out_name = f"{mode}_clip_{i}.mp4"
-        sub_ass = None
-        transcript_text = ""
-
-        if sub_generator:
-            try:
-                print(f"       🎙️ Transcribing Clip #{i} with Whisper AI ({whisper_model})...")
-                clip_wav = os.path.join("downloads", f"audio_{i}.wav")
-                extract_cmd = [
-                    "ffmpeg", "-y",
-                    "-ss", str(h["start"]),
-                    "-t", str(clip_duration),
-                    "-i", video_file,
-                    "-vn", "-ac", "1", "-ar", "16000",
-                    clip_wav
-                ]
-                subprocess.run(extract_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                ass_path = os.path.join("output", f"sub_{mode}_{i}.ass")
-                sub_ass, transcript_text = sub_generator.generate_subtitles(clip_wav, ass_path)
-                if os.path.exists(clip_wav):
-                    try:
-                        os.remove(clip_wav)
-                    except Exception:
-                        pass
-            except Exception as e:
-                print(f"       ⚠️ Subtitle warning: {e}. Rendering without subtitles...")
-                sub_ass = None
-
-        out_path = clipper.render_clip(
-            input_video=video_file,
-            start_sec=h["start"],
-            duration=clip_duration,
-            output_name=out_name,
-            layout_mode=selected_layout,
-            layout_data=layout_data,
-            hook_title=hook_title,
-            mode=mode,
-            subtitle_ass_path=sub_ass
+        print(f"\n[2/4] 🔊 Analyzing Audio Highlights...")
+        highlights = analyzer.analyze_highlights(
+            video_file,
+            clip_duration=clip_duration,
+            top_k=top_k,
+            mode=mode
         )
-        rendered_files.append(out_path)
-        print(f"       ✅ Clip #{i} saved: {out_path}")
 
-        # Social Pack
-        social = copywriter.generate_social_pack(transcript_text, mode=mode, hook_title=hook_title)
-        print(f"\n       📝 Social Media Copywriting (Clip #{i}):")
-        print(f"       Title  : {social['title']}")
-        print(f"       Caption:\n{social['caption']}\n")
+        selected_layout, layout_data = detect_layout_cli(mode, video_file, layout_preference)
 
-    print("=" * 65)
+        for idx, h in enumerate(highlights, 1):
+            out_name = f"{mode}_clip_{idx}.mp4"
+            sub_ass, transcript_text = None, ""
+            if sub_generator:
+                try:
+                    clip_wav = os.path.join("downloads", f"audio_{idx}.wav")
+                    extract_cmd = ["ffmpeg", "-y", "-ss", str(h["start"]), "-t", str(clip_duration), "-i", video_file, "-vn", "-ac", "1", "-ar", "16000", clip_wav]
+                    subprocess.run(extract_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    ass_path = os.path.join("output", f"sub_{mode}_{idx}.ass")
+                    sub_ass, transcript_text = sub_generator.generate_subtitles(clip_wav, ass_path)
+                    if os.path.exists(clip_wav):
+                        try: os.remove(clip_wav)
+                        except Exception: pass
+                except Exception as e:
+                    print(f"       ⚠️ Subtitle warning: {e}")
+
+            out_path = clipper.render_clip(
+                input_video=video_file,
+                start_sec=h["start"],
+                duration=clip_duration,
+                output_name=out_name,
+                layout_mode=selected_layout,
+                layout_data=layout_data,
+                hook_title=hook_title,
+                mode=mode,
+                subtitle_ass_path=sub_ass
+            )
+            rendered_files.append(out_path)
+            print(f"       ✅ Clip #{idx} saved: {out_path}")
+
+            social = copywriter.generate_social_pack(transcript_text, mode=mode, hook_title=hook_title)
+            print(f"       📝 Caption:\n{social['caption']}\n")
+
+    print("\n" + "=" * 65)
     print(f"🎉 SUKSES! {len(rendered_files)} video shorts vertikal 9:16 siap diupload:")
     for f in rendered_files:
         print(f"   -> {os.path.abspath(f)}")
     print("=" * 65)
 
+def detect_layout_cli(mode, video_file, layout_preference):
+    selected_layout = "blurred_bg"
+    layout_data = None
+    if layout_preference == "blur":
+        return "blurred_bg", None
+
+    if mode == "gaming":
+        detector = GamingLayoutDetector()
+        facecam_box = detector.detect_streamer_facecam(video_file)
+        if facecam_box and (layout_preference in ["auto", "split"]):
+            selected_layout = "facecam_split"
+            layout_data = facecam_box
+            print(f"       Streamer facecam detected at: x={facecam_box['x']}, y={facecam_box['y']}")
+    elif mode == "podcast":
+        detector = PodcastLayoutDetector()
+        speakers = detector.detect_podcast_speakers(video_file)
+        if speakers and (layout_preference in ["auto", "split"]):
+            selected_layout = "podcast_split"
+            layout_data = speakers
+            print("       Podcast dual speakers detected!")
+    elif mode == "talking_head":
+        detector = TalkingHeadLayoutDetector()
+        head_box = detector.detect_talking_head(video_file)
+        if head_box and (layout_preference in ["auto", "portrait"]):
+            selected_layout = "talking_head"
+            layout_data = head_box
+            print("       Speaker tracked: 9:16 Portrait Auto-Reframe")
+
+    return selected_layout, layout_data
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="AI Multi-Mode Video Clipping App with Whisper Subtitles & CV Layouts")
+    parser = argparse.ArgumentParser(description="AI Multi-Mode Video Clipping App (24h Livestream Ready)")
     parser.add_argument("source", help="YouTube URL or local MP4 path")
-    parser.add_argument("--mode", choices=["gaming", "podcast", "talking_head"], default="gaming", help="Content mode: gaming, podcast, talking_head")
-    parser.add_argument("--start", type=int, default=120, help="Start time in seconds for analysis window (default: 120s)")
-    parser.add_argument("--duration", type=int, default=180, help="Duration in seconds of window to analyze (default: 180s)")
+    parser.add_argument("--mode", choices=["gaming", "podcast", "talking_head"], default="gaming", help="Content mode")
+    parser.add_argument("--start", type=int, default=0, help="Start time in seconds (default: 0)")
+    parser.add_argument("--duration", type=int, default=1440, help="Duration in minutes of window to analyze (default: 1440 = 24h)")
     parser.add_argument("--clip-len", type=int, default=30, help="Length of each output short in seconds (default: 30s)")
-    parser.add_argument("--top", type=int, default=1, help="Number of clips to generate (default: 1)")
+    parser.add_argument("--top", type=int, default=2, help="Number of clips to generate (default: 2)")
     parser.add_argument("--layout", choices=["auto", "split", "portrait", "blur"], default="auto", help="Layout style")
     parser.add_argument("--hook", default=None, help="Hook title banner text")
     parser.add_argument("--no-subtitles", action="store_true", help="Disable Whisper auto-subtitles")
